@@ -1,12 +1,20 @@
 package top.coolbreeze4j.easyexcellearn.read;
 
 import com.alibaba.excel.EasyExcel;
+import com.alibaba.excel.ExcelReader;
 import com.alibaba.excel.context.AnalysisContext;
 import com.alibaba.excel.read.listener.PageReadListener;
 import com.alibaba.excel.read.listener.ReadListener;
+import com.alibaba.excel.read.metadata.ReadSheet;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ClassPathResource;
+import top.coolbreeze4j.easyexcellearn.data.ComplexHeaderData;
+import top.coolbreeze4j.easyexcellearn.data.ComplexHeaderData2;
+import top.coolbreeze4j.easyexcellearn.data.ConverterData;
 import top.coolbreeze4j.easyexcellearn.data.DemoData;
+import top.coolbreeze4j.easyexcellearn.read.listener.ComplexHeaderData2Listener;
+import top.coolbreeze4j.easyexcellearn.read.listener.ComplexHeaderDataListener;
+import top.coolbreeze4j.easyexcellearn.read.listener.ConverterDataListener;
 import top.coolbreeze4j.easyexcellearn.read.listener.DemoDataListener;
 
 import java.io.IOException;
@@ -52,5 +60,89 @@ public class ReadTest {
                 System.out.println("read excel end!");
             }
         }).sheet().doRead();;
+    }
+
+    @Test
+    //指定读取一个sheet
+    public void readBySheet1() throws IOException {
+        ClassPathResource excel = new ClassPathResource("excel/read/simpleRead.xlsx");
+        //DemoDataListener是手动实现的一个ReadListener,
+        EasyExcel.read(excel.getFile(), DemoData.class, new DemoDataListener()).sheet(1).doRead();
+    }
+
+    @Test
+    //指定读取多个sheet(sheet表头一致)
+    public void readBySheet2() throws IOException {
+        ClassPathResource excel = new ClassPathResource("excel/read/simpleRead.xlsx");
+        //DemoDataListener是手动实现的一个ReadListener,
+        ExcelReader excelReader = EasyExcel.read(excel.getFile(), DemoData.class, new DemoDataListener()).build();
+        //构建sheet 这里可以指定名字或者no(也就是第几个sheet,比如 第一个sheet的no为0)
+        //这里可以构建多个sheet,然后在下面read多个sheet(但是此时为多个sheet的表头一致，若不一致 需其他方法)
+        ReadSheet readSheet = EasyExcel.readSheet(0).build();
+        ReadSheet readSheet1 = EasyExcel.readSheet(1).build();
+
+        // 读取sheet
+        excelReader.read(readSheet,readSheet1);
+    }
+
+    @Test
+    //读取全部sheet(sheet表头一致,不常用)
+    public void readBySheet3() throws IOException {
+        ClassPathResource excel = new ClassPathResource("excel/read/simpleRead.xlsx");
+        //DemoDataListener是手动实现的一个ReadListener,
+        EasyExcel.read(excel.getFile(), DemoData.class, new DemoDataListener()).doReadAll();
+    }
+
+
+    @Test
+    //读取多个sheet(sheet表头可以不一致,常用)
+    public void readBySheet4() throws IOException {
+        ClassPathResource excel = new ClassPathResource("excel/read/simpleRead.xlsx");
+        //DemoDataListener是手动实现的一个ReadListener,
+        ExcelReader excelReader = EasyExcel.read(excel.getFile()).build();
+        //这里为了方便 所以假定多个sheet的表头是一样的
+        ReadSheet readSheet1 = EasyExcel.readSheet(0).head(DemoData.class).registerReadListener(new DemoDataListener()).build();
+        ReadSheet readSheet2 = EasyExcel.readSheet(1).head(DemoData.class).registerReadListener(new DemoDataListener()).build();
+
+        //最后开始读取
+        //注意: 一定要把sheet1 sheet2 一起传进去，不然有个问题就是03版的excel 会读取多次，浪费性能
+        excelReader.read(readSheet1, readSheet2);
+    }
+
+    @Test
+    //读取时使用转换器(数据模型的某个字段进行转换)
+    public void readByConverter() throws IOException {
+        ClassPathResource excel = new ClassPathResource("excel/read/converterRead.xlsx");
+        //ConverterDataListener是手动实现的一个ReadListener,
+        //ConverterData 的sex设置了转换器，将填写的性别转换为Integer类型的代码
+        //ConverterData 的sex @ExcelProperty 设置converter属性指定自定义转换器
+        EasyExcel.read(excel.getFile(), ConverterData.class, new ConverterDataListener())
+                .sheet().doRead();
+    }
+
+
+    @Test
+    //读取多级表头(通过数据模型 @ExcelProperty注解实现)
+    public void complexHeaderRead() throws IOException {
+        ClassPathResource excel = new ClassPathResource("excel/read/complexHeader.xlsx");
+        //ComplexHeaderDataListener是手动实现的一个ReadListener,
+        //ComplexHeaderData中字段的 @ExcelProperty设置了多级表头,会自动识别
+        //但是！！ 如果某个字段不是多级的 excel内是合并的单元格，那么@ExcelProperty设置value是读取不到的。
+        //解决这种情况可以设置 @ExcelProperty的index
+        EasyExcel.read(excel.getFile(), ComplexHeaderData.class, new ComplexHeaderDataListener())
+                .sheet().doRead();
+    }
+
+    @Test
+    //读取多级表头(读取时设置表头几行)
+    public void complexHeaderRead2() throws IOException {
+        ClassPathResource excel = new ClassPathResource("excel/read/complexHeader.xlsx");
+        //ComplexHeaderData2Listener是手动实现的一个ReadListener,
+        //需要注意同上的问题：如果某个字段不是多级的 excel内是合并的单元格，那么@ExcelProperty设置value是读取不到的。
+        //解决这种情况可以设置 @ExcelProperty的index
+        EasyExcel.read(excel.getFile(), ComplexHeaderData2.class, new ComplexHeaderData2Listener())
+                //设置表头占了几行
+                .headRowNumber(2)
+                .sheet().doRead();
     }
 }
