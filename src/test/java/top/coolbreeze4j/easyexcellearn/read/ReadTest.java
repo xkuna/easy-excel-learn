@@ -3,11 +3,13 @@ package top.coolbreeze4j.easyexcellearn.read;
 import com.alibaba.excel.EasyExcel;
 import com.alibaba.excel.ExcelReader;
 import com.alibaba.excel.context.AnalysisContext;
+import com.alibaba.excel.enums.CellExtraTypeEnum;
 import com.alibaba.excel.read.listener.PageReadListener;
 import com.alibaba.excel.read.listener.ReadListener;
 import com.alibaba.excel.read.metadata.ReadSheet;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ClassPathResource;
+import top.coolbreeze4j.easyexcellearn.DemoExtra;
 import top.coolbreeze4j.easyexcellearn.data.ComplexHeaderData;
 import top.coolbreeze4j.easyexcellearn.data.ComplexHeaderData2;
 import top.coolbreeze4j.easyexcellearn.data.ConverterData;
@@ -150,5 +152,20 @@ public class ReadTest {
         //DemoDataHeadListener是手动实现的一个ReadListener,
         //并且重写了 头信息读取方法 invokeHead() 和 解析异常方法 onException()
         EasyExcel.read(excel.getFile(), DemoData.class, new DemoDataHeadListener()).sheet().doRead();
+    }
+
+    @Test
+    //读取额外信息（批注、超链接、合并单元格信息读取）
+    public void readExtra() throws IOException {
+        ClassPathResource excel = new ClassPathResource("excel/read/extra.xlsx");
+        //DemoExtraListener是手动实现的一个ReadListener,
+        //并且重写了 额外信息读取方法 extra()
+        EasyExcel.read(excel.getFile(), DemoExtra.class, new DemoExtraListener())
+                // 需要读取批注 默认不读取
+                .extraRead(CellExtraTypeEnum.COMMENT)
+                // 需要读取超链接 默认不读取
+                .extraRead(CellExtraTypeEnum.HYPERLINK)
+                // 需要读取合并单元格信息 默认不读取
+                .extraRead(CellExtraTypeEnum.MERGE).sheet().doRead();
     }
 }
