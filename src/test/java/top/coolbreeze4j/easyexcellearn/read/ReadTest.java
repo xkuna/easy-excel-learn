@@ -12,10 +12,7 @@ import top.coolbreeze4j.easyexcellearn.data.ComplexHeaderData;
 import top.coolbreeze4j.easyexcellearn.data.ComplexHeaderData2;
 import top.coolbreeze4j.easyexcellearn.data.ConverterData;
 import top.coolbreeze4j.easyexcellearn.data.DemoData;
-import top.coolbreeze4j.easyexcellearn.read.listener.ComplexHeaderData2Listener;
-import top.coolbreeze4j.easyexcellearn.read.listener.ComplexHeaderDataListener;
-import top.coolbreeze4j.easyexcellearn.read.listener.ConverterDataListener;
-import top.coolbreeze4j.easyexcellearn.read.listener.DemoDataListener;
+import top.coolbreeze4j.easyexcellearn.read.listener.*;
 
 import java.io.IOException;
 
@@ -144,5 +141,14 @@ public class ReadTest {
                 //设置表头占了几行
                 .headRowNumber(2)
                 .sheet().doRead();
+    }
+
+    @Test
+    //读取表头信息(不常用， 但设置出现异常不中断读取时，可以参考 DemoDataHeadListener重写的 onException() 方法)
+    public void readHeader() throws IOException{
+        ClassPathResource excel = new ClassPathResource("excel/read/simpleRead.xlsx");
+        //DemoDataHeadListener是手动实现的一个ReadListener,
+        //并且重写了 头信息读取方法 invokeHead() 和 解析异常方法 onException()
+        EasyExcel.read(excel.getFile(), DemoData.class, new DemoDataHeadListener()).sheet().doRead();
     }
 }
