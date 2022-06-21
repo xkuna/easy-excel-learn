@@ -17,6 +17,7 @@ import top.coolbreeze4j.easyexcellearn.data.DemoData;
 import top.coolbreeze4j.easyexcellearn.read.listener.*;
 
 import java.io.IOException;
+import java.util.List;
 
 /**
  * @author CoolBreeze
@@ -167,5 +168,25 @@ public class ReadTest {
                 .extraRead(CellExtraTypeEnum.HYPERLINK)
                 // 需要读取合并单元格信息 默认不读取
                 .extraRead(CellExtraTypeEnum.MERGE).sheet().doRead();
+    }
+
+    @Test
+    //同步读取数据：等待读取完整个sheet 到一个list中，这样内存占用会非常大
+    //不建议使用，大数据导入时，应实现一个ReadListener监听器 来 分批次list 入库，且每次入库后 清空内存中本次入库list
+    public void syncRead() throws IOException {
+        ClassPathResource excel = new ClassPathResource("excel/read/simpleRead.xlsx");
+        List<DemoData> list = EasyExcel.read(excel.getFile()).head(DemoData.class).sheet().doReadSync();
+        for (DemoData demoData : list) {
+            System.out.println(demoData);
+        }
+    }
+
+    @Test
+    //读取数据为map
+    public void readToMap() throws IOException {
+        ClassPathResource excel = new ClassPathResource("excel/read/simpleRead.xlsx");
+        //MapReadListener继承AnalysisEventListener
+        //重写的 invoke() 方法中的 Map<Integer, Object> data，是列坐标 及该行该列的数据，可以根据业务在方法内再次组装
+        EasyExcel.read(excel.getFile(), new MapReadListener()).sheet().doRead();
     }
 }
