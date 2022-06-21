@@ -636,3 +636,364 @@ public void complexHeaderRead2() throws IOException {
 ```
 
 
+
+### 5.获取excel头信息，并处理读取异常
+
+
+
+#### 数据模型
+
+```java
+import com.alibaba.excel.annotation.ExcelIgnore;
+import com.alibaba.excel.annotation.ExcelProperty;
+import lombok.Data;
+
+/**
+ * @author CoolBreeze
+ * @date 2022/6/18 15:41.
+ * demo数据实体类
+ */
+@Data
+public class DemoData {
+    @ExcelProperty(value = "姓名")
+    private String name;
+    @ExcelIgnore
+    private int age;
+    @ExcelProperty(value = "所在班级")
+    private String clazz;
+}
+
+```
+
+
+
+#### excel
+
+![image-20220620201553650](https://blog-1252734679.cos.ap-shanghai.myqcloud.com/markdown/image-20220620201553650.png)
+
+
+
+#### 监听器
+
+```java
+
+import com.alibaba.excel.context.AnalysisContext;
+import com.alibaba.excel.exception.ExcelDataConvertException;
+import com.alibaba.excel.metadata.data.ReadCellData;
+import com.alibaba.excel.read.listener.ReadListener;
+import com.alibaba.excel.util.ConverterUtils;
+import lombok.extern.slf4j.Slf4j;
+import top.coolbreeze4j.easyexcellearn.data.DemoData;
+
+import java.util.Map;
+
+/**
+ * @author CoolBreeze
+ * @date 2022/6/20 19:57.
+ */
+@Slf4j
+public class DemoDataHeadListener implements ReadListener<DemoData> {
+  /**
+     * 解析过程中异常处理
+     * 如果在该方法内抛出异常，则停止读取
+     * 否则 继续读取下一行
+     * @throws Exception
+     */
+  @Override
+  public void onException(Exception exception, AnalysisContext context){
+    log.info("解析失败，但继续读取下一行");
+    //如果异常是 excel转换异常，那么打印 异常数据信息
+    if(exception instanceof ExcelDataConvertException){
+      ExcelDataConvertException excelDataConvertException = (ExcelDataConvertException) exception;
+      log.error("第{}行，第{}列解析异常，数据为:{}", excelDataConvertException.getRowIndex(),
+                excelDataConvertException.getColumnIndex(), excelDataConvertException.getCellData());
+    }
+  }
+
+  /**
+     * 每解析一个行头信息 执行一次该方法
+     * @param headMap 一行的头信息
+     */
+  @Override
+  public void invokeHead(Map<Integer, ReadCellData<?>> headMap, AnalysisContext context) {
+    // 如果想转成成 Map<Integer,String> (cellIndex, cellName)
+    // 方案1： 不要implements ReadListener 而是 extends AnalysisEventListener
+    // 方案2： 调用 ConverterUtils.convertToStringMap(headMap, context) 自动会转换
+    Map<Integer, String> headIndexAndInfo = ConverterUtils.convertToStringMap(headMap, context);
+    log.info("一行excel头数据:{}", headIndexAndInfo);
+  }
+
+  /**
+     * 每读取一行数据 执行一次该方法
+     */
+  @Override
+  public void invoke(DemoData demoData, AnalysisContext analysisContext) {
+    //略
+  }
+
+  /**
+     * 数据读取完毕后 执行该方法
+     */
+  @Override
+  public void doAfterAllAnalysed(AnalysisContext analysisContext) {
+    //略
+  }
+}
+
+```
+
+
+
+#### 实现代码
+
+```java
+@Test
+//读取表头信息(不常用， 但设置出现异常不中断读取时，可以参考 DemoDataHeadListener重写的 onException() 方法)
+public void readHeader() throws IOException{
+  ClassPathResource excel = new ClassPathResource("excel/read/simpleRead.xlsx");
+  //DemoDataHeadListener是手动实现的一个ReadListener,
+  //并且重写了 头信息读取方法 invokeHead() 和 解析异常方法 onException()
+  EasyExcel.read(excel.getFile(), DemoData.class, new DemoDataHeadListener()).sheet().doRead();
+}
+```
+
+
+
+
+
+### 6.获取excel额外信息(批注 超链接 合并单元格)
+
+
+
+#### 数据模型
+
+```java
+import com.alibaba.excel.annotation.ExcelProperty;
+import lombok.Data;
+
+/**
+ * @author CoolBreeze
+ * @date 2022/6/20 20:46.
+ */
+@Data
+public class DemoExtra {
+    @ExcelProperty("第一列")
+    private String cell1;
+    @ExcelProperty("第二列")
+    private String cell2;
+}
+
+```
+
+
+
+#### excel
+
+![image-20220620210953467](https://blog-1252734679.cos.ap-shanghai.myqcloud.com/markdown/image-20220620210953467.png)
+
+
+
+#### 监听器
+
+```java
+import com.alibaba.excel.context.AnalysisContext;
+import com.alibaba.excel.metadata.CellExtra;
+import com.alibaba.excel.read.listener.ReadListener;
+import lombok.extern.slf4j.Slf4j;
+import org.junit.Assert;
+import top.coolbreeze4j.easyexcellearn.DemoExtra;
+
+/**
+ * @author CoolBreeze
+ * @date 2022/6/20 20:48.
+ * excel（批注、超链接、合并单元格信息读取） 额外信息监听器
+ */
+@Slf4j
+public class DemoExtraListener implements ReadListener<DemoExtra> {
+  @Override
+  public void invoke(DemoExtra demoExtra, AnalysisContext analysisContext) {
+    //略
+  }
+
+  @Override
+  public void doAfterAllAnalysed(AnalysisContext analysisContext) {
+    //略
+  }
+
+  /**
+     * 每读取到一条额外信息 执行一次该方法
+     * @param extra
+     * @param context
+     */
+  @Override
+  public void extra(CellExtra extra, AnalysisContext context) {
+    switch (extra.getType()){
+      case COMMENT:
+        log.info("额外信息是批注,在rowIndex:{},columnIndex;{},内容是:{}", extra.getRowIndex(), extra.getColumnIndex(),
+                 extra.getText());
+        break;
+      case HYPERLINK:
+        if ("Sheet1!H1".equals(extra.getText())) {
+          log.info("额外信息是超链接,在rowIndex:{},columnIndex;{},内容是:{}", extra.getRowIndex(),
+                   extra.getColumnIndex(), extra.getText());
+        } else if ("Sheet1!H2".equals(extra.getText())) {
+          log.info(
+            "额外信息是超链接,而且覆盖了一个区间,在firstRowIndex:{},firstColumnIndex;{},lastRowIndex:{},lastColumnIndex:{},",
+            extra.getFirstRowIndex(), extra.getFirstColumnIndex(), extra.getLastRowIndex(),
+            extra.getLastColumnIndex());
+        } else {
+          Assert.fail("Unknown hyperlink!");
+        }
+        break;
+      case MERGE:
+        log.info(
+          "额外信息是合并单元格,而且覆盖了一个区间,在firstRowIndex:{},firstColumnIndex;{},lastRowIndex:{},lastColumnIndex:{}"
+          + "内容是:{}",
+          extra.getFirstRowIndex(), extra.getFirstColumnIndex(), extra.getLastRowIndex(),
+          extra.getLastColumnIndex(), extra.getText());
+        break;
+      default:
+    }
+  }
+}
+
+```
+
+
+
+#### 实现代码
+
+```java
+ @Test
+//读取额外信息（批注、超链接、合并单元格信息读取）
+public void readExtra() throws IOException {
+  ClassPathResource excel = new ClassPathResource("excel/read/extra.xlsx");
+  //DemoExtraListener是手动实现的一个ReadListener,
+  //并且重写了 额外信息读取方法 extra()
+  EasyExcel.read(excel.getFile(), DemoExtra.class, new DemoExtraListener())
+    // 需要读取批注 默认不读取
+    .extraRead(CellExtraTypeEnum.COMMENT)
+    // 需要读取超链接 默认不读取
+    .extraRead(CellExtraTypeEnum.HYPERLINK)
+    // 需要读取合并单元格信息 默认不读取
+    .extraRead(CellExtraTypeEnum.MERGE).sheet().doRead();
+}
+```
+
+
+
+### 7.同步读取数据(不推荐使用)
+
+
+
+#### 数据模型
+
+```java
+import com.alibaba.excel.annotation.ExcelIgnore;
+import com.alibaba.excel.annotation.ExcelProperty;
+import lombok.Data;
+
+/**
+ * @author CoolBreeze
+ * @date 2022/6/18 15:41.
+ * demo数据实体类
+ */
+@Data
+public class DemoData {
+    @ExcelProperty(value = "姓名")
+    private String name;
+    @ExcelIgnore
+    private Integer age;
+    @ExcelProperty(value = "班级")
+    private String clazz;
+}
+
+```
+
+
+
+#### excel
+
+![image-20220621170650838](https://blog-1252734679.cos.ap-shanghai.myqcloud.com/markdown/image-20220621170650838.png)
+
+
+
+#### 实现代码
+
+```java
+@Test
+//同步读取数据：等待读取完整个sheet 到一个list中，这样内存占用会非常大
+//不建议使用，大数据导入时，应实现一个ReadListener监听器 来 分批次list 入库，且每次入库后 清空内存中本次入库list
+public void syncRead() throws IOException {
+  ClassPathResource excel = new ClassPathResource("excel/read/simpleRead.xlsx");
+  List<DemoData> list = EasyExcel.read(excel.getFile()).head(DemoData.class).sheet().doReadSync();
+  for (DemoData demoData : list) {
+    System.out.println(demoData);
+  }
+}
+```
+
+
+
+### 8.读取为map
+
+#### excel
+
+![image-20220621170650838](https://blog-1252734679.cos.ap-shanghai.myqcloud.com/markdown/image-20220621170650838.png)
+
+
+
+#### 监听器
+
+```java
+import com.alibaba.excel.context.AnalysisContext;
+import com.alibaba.excel.event.AnalysisEventListener;
+import lombok.extern.slf4j.Slf4j;
+
+import java.util.Map;
+
+/**
+ * @author CoolBreeze
+ * @date 2022/6/21 16:45.
+ */
+@Slf4j
+public class MapReadListener extends AnalysisEventListener<Map<Integer, Object>> {
+
+  /**
+     * 每读取完一行 执行一次该方法
+     * @param data key为列index, value为该行该列的数据
+     * @param analysisContext
+     */
+  @Override
+  public void invoke(Map<Integer, Object> data, AnalysisContext analysisContext) {
+    log.info("读取到一行数据:\n{}", data);
+  }
+
+  /**
+     * 全部读取完毕 执行该方法
+     * @param analysisContext
+     */
+  @Override
+  public void doAfterAllAnalysed(AnalysisContext analysisContext) {
+    //略
+  }
+}
+
+```
+
+
+
+#### 实现代码
+
+```java
+@Test
+//读取数据为map
+public void readToMap() throws IOException {
+  ClassPathResource excel = new ClassPathResource("excel/read/simpleRead.xlsx");
+  //MapReadListener继承AnalysisEventListener
+  //重写的 invoke() 方法中的 Map<Integer, Object> data，是列坐标 及该行该列的数据，可以根据业务在方法内再次组装
+  EasyExcel.read(excel.getFile(), new MapReadListener()).sheet().doRead();
+}
+```
+
+
